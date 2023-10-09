@@ -29,7 +29,10 @@
     "vitest": "vitest"
   },
   "dependencies": {
-    "generator-jhipster": "8.0.0-beta.3"
+    "@types/lodash": "4.14.199",
+    "dayjs": "^1.11.10",
+    "generator-jhipster": "github:jhipster/generator-jhipster#main",
+    "lodash": "^4.17.21"
   },
   "devDependencies": {
     "ejs-lint": "2.0.0",

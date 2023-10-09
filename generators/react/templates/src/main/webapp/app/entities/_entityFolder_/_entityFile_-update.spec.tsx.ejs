@@ -1,0 +1,253 @@
+import React from 'react';
+import { cleanup, fireEvent, waitFor } from '@testing-library/react';
+import '@testing-library/jest-dom';
+import { Route } from 'react-router-dom';
+import { TranslatorContext, translate } from 'react-jhipster';
+import { rest } from 'msw';
+import { setupServer } from 'msw/node';
+import <%= entityReactName %>Update from './<%= entityFileName %>-update';
+import translation from 'i18n/<%= nativeLanguage %>/<%= entityTranslationKey %>.json';
+import { displayDefaultDateTime } from 'app/shared/util/date-utils';
+import <%= entityInstance %> from 'app/entities/<%= entityFileName %>/<%= entityFileName %>.reducer';
+import { renderWithProviders } from '../entities-test-utils';
+import {
+  payloadData,
+  payloadDataPartial,
+  formDataPartial,
+  formData,
+  payloadDataPartialUpdated,
+  formDataPartialUpdated,
+  preloadedState,
+} from './<%= entityFileName %>.test-samples';
+
+const server = setupServer(
+  rest.get('/api/<%= entityApiUrl %>/1', (_req, res, ctx) => res(ctx.status(200), ctx.json({ id: 1, ...payloadData }))),
+  rest.get('/api/<%= entityApiUrl %>/2', (_req, res, ctx) => res(ctx.status(200), ctx.json({ id: 2, ...payloadDataPartial }))),
+  rest.get('/api/<%= entityApiUrl %>', null),
+  <%_ otherEntityActions.forEach(val => { _%>
+  rest.get('/api/<%= val.url %>', null),
+<%_ }) _%>
+);
+
+beforeAll(() => {
+  TranslatorContext.registerTranslations('<%= nativeLanguage %>', translation);
+  server.listen();
+});
+
+afterEach(() => {
+  server.resetHandlers();
+  cleanup();
+});
+
+afterAll(() => server.close());
+
+const renderComponent = initialEntry =>
+  renderWithProviders(
+    <>
+      {/* Required for `navigate('/<%= entityFileName %>');`. */}
+      <Route index path="/<%= entityFileName %>/*" element={<span>Navigated to <%= entityReactName %>s</span>} />
+      <Route path="new" element={<<%= entityReactName %>Update />} />
+      <Route path=":id">
+        <Route path="edit" element={<<%= entityReactName %>Update />} />
+      </Route>
+    </>,
+    {
+      reducers: { <%= entityInstance %> },
+      preloadedState,
+      initialEntry,
+      entityName: "<%= entityInstance %>"
+    },
+  );
+
+describe('<%= entityReactName %>Update Component Test Suite', () => {
+  it('should render new <%= entityReactName %>Update', async () => {
+    // WHEN
+    const { getByTextKey, getByLabelTextKey } = renderComponent('new');
+
+    // THEN
+    await waitFor(() => {
+      expect(getByTextKey('home.createOrEditLabel')).toBeInTheDocument();
+<%_ for (field of fields.filter(field => !field.id)) {
+      const fieldName = field.fieldName;
+
+      if (field.fieldTypeTimed) { _%>
+      expect(getByLabelTextKey('<%= fieldName %>')).toHaveValue(displayDefaultDateTime());      
+  <%_ } _%>
+<%_ } _%>  
+    });
+  });
+
+  it('should POST with only required fields for new registration and handle success', async () => {
+    // GIVEN
+    let requestError = null;
+    server.use(
+      rest.post('/api/<%= entityApiUrl %>', async (req, res, ctx) => {
+        try {
+          const payload = await req.json();
+          expect(payload).toMatchObject(payloadDataPartial);
+          return res(
+            ctx.status(200),
+            ctx.set('app-alert', '<%= frontendAppName %>.<%= entityFileName %>.created'),
+            ctx.set('app-params', '1'),
+            ctx.json(payloadData),
+          );
+        } catch (e) {
+          requestError = e.matcherResult ? e : null; // matchResult is set when the expect() fails
+          throw e;
+        }
+      }),
+    );
+
+    // WHEN
+    const screen = renderComponent('new');
+    await waitFor(async () => {
+      await screen.setForm(formDataPartial);
+      fireEvent.click(screen.getByRole('button', { name: /save/i }));
+    });
+
+    // THEN
+    // wait for the toast to appear
+    const expectedToastString = translate('<%= frontendAppName %>.<%= entityFileName %>.created', { param: '1' });
+    await screen.findAllByText((content) => content.includes(expectedToastString) || content.includes('Network Error'));
+    // Throw the request error if it exists
+    if (requestError) throw requestError;
+    // Check that the toast is displayed
+    expect(await screen.findByText(expectedToastString)).toBeInTheDocument(); 
+  });
+
+  it('should POST with all fields for new registration and handle success', async () => {
+    // GIVEN
+    let requestError = null;
+    server.use(
+      rest.post('/api/<%= entityApiUrl %>', async (req, res, ctx) => {
+        try {
+          const payload = await req.json();
+          expect(payload).toMatchObject(payloadData);
+          return res(
+            ctx.status(200),
+            ctx.set('app-alert', '<%= frontendAppName %>.<%= entityFileName %>.created'),
+            ctx.set('app-params', '1'),
+            ctx.json(payloadData),
+          );
+        } catch (e) {
+          requestError = e.matcherResult ? e : null; // matchResult is set when the expect() fails
+          throw e;
+        }
+      }),
+    );
+
+    // WHEN
+    const screen = renderComponent('new');
+    await waitFor(async () => {
+      await screen.setForm(formData);
+      fireEvent.click(screen.getByRole('button', { name: /save/i }));
+    });
+
+    // THEN
+    // wait for the toast to appear
+    const expectedToastString = translate('<%= frontendAppName %>.<%= entityFileName %>.created', { param: '1' });
+    await screen.findAllByText((content) => content.includes(expectedToastString) || content.includes('Network Error'));
+    // Throw the request error if it exists
+    if (requestError) throw requestError;
+    // Check that the toast is displayed
+    expect(await screen.findByText(expectedToastString)).toBeInTheDocument(); 
+  });
+
+  it('should POST for new registration and fail', async () => {
+    // GIVEN
+    server.use(
+      rest.post('/api/<%= entityApiUrl %>', (req, res, ctx) => {
+        return res(ctx.status(500));
+      }),
+    );
+
+    // WHEN
+    const screen = renderComponent('new');
+    await waitFor(async () => {
+      await screen.setForm(formDataPartial);
+      fireEvent.click(screen.getByRole('button', { name: /save/i }));
+    });
+
+    // THEN
+    expect((await screen.findAllByText('Network Error')).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('should render update <%= entityReactName %>Update', async () => {
+    const screen = renderComponent('2/edit');
+    for (const [key, value] of Object.entries(formDataPartial)) {
+        expect(await screen.findByLabelTextKey(key)).toHaveValue(value);
+    }
+  });
+
+  it('should PUT for update and succeed', async () => {
+    // GIVEN
+    let requestError = null;
+    server.use(
+      rest.put('/api/<%= entityApiUrl %>/2', async (req, res, ctx) => {
+        const payload = await req.json();
+        try {
+          expect(payload).toMatchObject({ id: 2, ...payloadData, ...payloadDataPartialUpdated });
+          return res(
+            ctx.status(200),
+            ctx.set('app-alert', '<%= frontendAppName %>.<%= entityFileName %>.updated'),
+            ctx.set('app-params', '2'),
+            ctx.json(payloadData),
+          );
+        } catch (e) {
+          requestError = e.matcherResult ? e : null; // matchResult is set when the expect() fails
+          throw e;
+        }
+      }),
+    );
+
+    // WHEN
+    const screen = renderComponent('2/edit');    
+    for (const [key, value] of Object.entries(formDataPartial)) {
+        expect(await screen.findByLabelTextKey(key)).toHaveValue(value);
+    }
+
+    await waitFor(async () => {
+      await screen.setForm({...formData, ...formDataPartialUpdated});      
+      fireEvent.click(screen.getByRole('button', { name: /save/i }));
+    });
+
+    // THEN
+    // wait for the toast to appear
+    const expectedToastString = translate('<%= frontendAppName %>.<%= entityFileName %>.updated', { param: '2' });
+    await screen.findAllByText((content) => content.includes(expectedToastString) || content.includes('Network Error'));
+    // Throw the request error if it exists
+    if (requestError) throw requestError;
+    // Check that the toast is displayed
+    expect(await screen.findByText(expectedToastString)).toBeInTheDocument(); 
+  });
+
+  it('should PUT for update and fail', async () => {
+    // GIVEN
+    server.use(
+      rest.put('/api/<%= entityApiUrl %>/2', (req, res, ctx) => {
+        return res(ctx.status(500));
+      }),
+    );
+
+    // WHEN
+    const screen = renderComponent('2/edit');
+    await waitFor(async () => {
+      await screen.setForm(formDataPartialUpdated);
+      fireEvent.click(screen.getByRole('button', { name: /save/i }));
+    });
+
+    // THEN
+    expect((await screen.findAllByText('Network Error')).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it(' should cancel and go back', async () => {
+    // WHEN
+    const screen = renderComponent('2/edit');
+    await waitFor(() => {
+      fireEvent.click(screen.getByRole('link', { name: /back/i }));
+    });
+
+    // THEN
+    expect(await screen.findByText('Navigated to <%= entityReactName %>s')).toBeInTheDocument();
+  });
+});
