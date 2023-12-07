@@ -29,6 +29,7 @@ import { I<%= entityReactName %> } from 'app/shared/model/<%= entityFileName %>.
 {
   const { entries, refs } = this.generateFullEntries(fields, relationships);
 _%>
+// There is an interim implementation until https://github.com/jhipster/generator-jhipster/pull/23850#issuecomment-1763453970 ('id' should be number) is addressed.
 export const payloadData: I<%= entityReactName %> = <%- this.formatPayloadField(entries, refs) %>;
 
 export const formData = <%- this.formatFormField(entries, refs) %>;
@@ -61,7 +62,7 @@ _%>
 export const preloadedState = {
 <%_ otherEntityActions.forEach((val, index) => { _%>
   <%= val.entity %>: {
-    entities: [{ id: <%= index %> }],
+    entities: [{ id: '<%= index %>' }],
   <%_ if (val.entity === entityInstance) { _%>
     entity: {},
   <%_ } _%>

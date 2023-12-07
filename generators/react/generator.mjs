@@ -102,10 +102,12 @@ export default class extends BaseApplicationGenerator {
       const entry = entries.find(([key]) => key === ref.name);
       const [key, value] = entry;
       if (typeof value === 'object') {
+        // TODO: Temporary implementation until following issue is resolved.
+        // https://github.com/jhipster/generator-jhipster/pull/23850#issuecomment-1763453970
         if (ref.relationship.relationshipType === 'many-to-many') {
-          payloadData.push([key, `[{ id : ${value.id} }]`]);
+          payloadData.push([key, `[{ id : '${value.id}' }]`]); // 'id' should be number
         } else {
-          payloadData.push([key, `{ id : ${value.id} }`]);
+          payloadData.push([key, `{ id : '${value.id}' }`]); // 'id' should be number
         }
       } else {
         payloadData.push(entry);
@@ -125,7 +127,7 @@ export default class extends BaseApplicationGenerator {
       const entry = entries.find(([key]) => key === ref.name);
       const [key, value] = entry;
       if (ref.field.fieldType === 'Instant') {
-        formData.push([key, `'${dayjs(value.replace(/'/g, '')).format('YYYY-MM-DDTHH:mm')}'`]);
+        formData.push([key, `'${dayjs(value.replace(/^dayjs\('(.*)'\)$/, '$1')).format('YYYY-MM-DDTHH:mm')}'`]);
       } else if (ref.field.fieldType === 'Long') {
         formData.push([key, `'${value}'`]);
       } else {
